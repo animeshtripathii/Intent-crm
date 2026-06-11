@@ -1,0 +1,14 @@
+{
+  "name": "xeno-crm",
+  "version": "1.0.0",
+  "description": "Chat-First AI CRM — MERN monorepo",
+  "private": true,
+  "scripts": {
+    "start:backend": "node crm-backend/server.js",
+    "start:channel": "node channel-service/server.js",
+    "start:frontend": "npm --prefix crm-frontend run dev"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

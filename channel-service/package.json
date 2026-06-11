@@ -1,0 +1,20 @@
+{
+  "name": "channel-service",
+  "version": "1.0.0",
+  "description": "Xeno CRM channel/delivery service",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2"
+  }
+}

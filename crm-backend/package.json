@@ -1,0 +1,24 @@
+{
+  "name": "crm-backend",
+  "version": "1.0.0",
+  "description": "Xeno CRM backend — Express + MongoDB + Gemini AI",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed/seed.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@faker-js/faker": "^9.7.0",
+    "@google/generative-ai": "^0.24.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "mongoose": "^8.14.1",
+    "node-fetch": "^3.3.2"
+  }
+}
