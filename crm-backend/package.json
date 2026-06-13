@@ -7,17 +7,20 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node seed/seed.js"
+    "seed": "node seed/seedData.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@faker-js/faker": "^9.7.0",
+    "@google/genai": "^2.8.0",
     "@google/generative-ai": "^0.24.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
+    "google-auth-library": "^10.7.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.14.1",
     "node-fetch": "^3.3.2"
   }
