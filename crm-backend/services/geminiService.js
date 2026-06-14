@@ -131,10 +131,12 @@ export const generateInsight = async (stats, campaignName) => {
   const userPrompt = `Campaign: ${campaignName}. Sent: ${stats.sent}. Delivered: ${stats.delivered}. Opened: ${stats.opened}. Clicked: ${stats.clicked}. Failed: ${stats.failed}.`;
 
   try {
-    const response = await withKeyRotation(client => client.models.generateContent({
+    const insightKey = process.env.GEMINI_INSIGHT_KEY;
+    const insightClient = new GoogleGenAI({ apiKey: insightKey });
+    const response = await insightClient.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `${systemPrompt}\n\n${userPrompt}`,
-    }));
+    });
     return response.text.trim();
   } catch (err) {
     console.error('generateInsight error:', err.message);
