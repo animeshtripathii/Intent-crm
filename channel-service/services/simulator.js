@@ -39,7 +39,8 @@ async function callbackToCRM(url, communicationId, status, attempt = 1) {
  * Simulate an async delivery pipeline:
  *   sent → delivered (88%) or failed (12%)
  *         → opened (45%)
- *              → clicked (35%)
+ *              → read (70% of opened)
+ *                   → clicked (35% of read)
  *
  * Each stage waits a random delay, then calls back to the CRM receipt endpoint.
  */
@@ -66,7 +67,16 @@ export async function simulateDelivery(communicationId, crmReceiptUrl) {
 
   await callbackToCRM(crmReceiptUrl, communicationId, 'opened');
 
-  // ── Stage 3: clicked (15–30 s) ────────────────────────────────────
+  // ── Stage 3: read (3–8 s after opened) ───────────────────────────
+  await sleep(randBetween(3000, 8000));
+
+  if (rand() >= 0.70) {
+    return; // not read — stop (skip clicked too)
+  }
+
+  await callbackToCRM(crmReceiptUrl, communicationId, 'read');
+
+  // ── Stage 4: clicked (15–30 s after read) ────────────────────────
   await sleep(randBetween(15000, 30000));
 
   if (rand() >= 0.35) {

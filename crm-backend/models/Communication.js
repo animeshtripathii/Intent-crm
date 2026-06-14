@@ -5,7 +5,7 @@ const communicationSchema = new mongoose.Schema({
   customerId:          { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
   personalizedMessage: { type: String },
   channel:             { type: String, enum: ['whatsapp', 'sms', 'email', 'rcs'] },
-  status:              { type: String, enum: ['sent', 'delivered', 'failed', 'opened', 'clicked'], default: 'sent' },
+  status:              { type: String, enum: ['sent', 'delivered', 'failed', 'opened', 'read', 'clicked'], default: 'sent' },
   statusHistory: [{
     status:    { type: String },
     timestamp: { type: Date, default: Date.now },

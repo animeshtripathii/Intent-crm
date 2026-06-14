@@ -12,6 +12,7 @@ const STATUS_COLORS = {
   delivered: '#22c55e',
   failed:    '#ef4444',
   opened:    '#a855f7',
+  read:      '#14b8a6',
   clicked:   '#f97316',
   sent:      '#94a3b8',
 };
@@ -21,6 +22,7 @@ const STAT_CARD_CONFIG = [
   { key: 'delivered', label: 'Delivered', color: 'text-green-600',  bg: 'bg-green-50'  },
   { key: 'failed',    label: 'Failed',    color: 'text-red-600',    bg: 'bg-red-50'    },
   { key: 'opened',    label: 'Opened',    color: 'text-purple-600', bg: 'bg-purple-50' },
+  { key: 'read',      label: 'Read',      color: 'text-teal-600',   bg: 'bg-teal-50'   },
   { key: 'clicked',   label: 'Clicked',   color: 'text-orange-600', bg: 'bg-orange-50' },
 ];
 
@@ -122,8 +124,8 @@ export default function CampaignAnalytics() {
   const chartData = breakdown
     .filter((b) => b._id !== 'sent')
     .map((b) => ({ name: b._id, value: b.count }))
-    .sort((a, b) => ['delivered', 'failed', 'opened', 'clicked'].indexOf(a.name) -
-                    ['delivered', 'failed', 'opened', 'clicked'].indexOf(b.name));
+    .sort((a, b) => ['delivered', 'failed', 'opened', 'read', 'clicked'].indexOf(a.name) -
+                    ['delivered', 'failed', 'opened', 'read', 'clicked'].indexOf(b.name));
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
