@@ -1,4 +1,4 @@
-# Xeno Intent CRM
+# Intent CRM
 ### AI-Native Campaign Manager for Retail & D2C Brands
 
 A chat-first campaign agent where marketers describe their goal in plain English — Gemini AI segments the audience, drafts personalized messages, and dispatches the campaign. No form-filling. No SQL. Just intent.
