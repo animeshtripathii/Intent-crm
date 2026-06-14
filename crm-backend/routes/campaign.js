@@ -1,3 +1,4 @@
+// main campaign lifecycle endpoints. handles intent parsing, previews, and final dispatch.
 import { Router } from 'express';
 import Campaign from '../models/Campaign.js';
 import { parseIntent, draftMessage } from '../services/geminiService.js';
@@ -12,7 +13,6 @@ const chunk = (arr, size) =>
     (_, i) => arr.slice(i * size, i * size + size),
   );
 
-// ── POST / — Create campaign + return preview (do NOT send yet) ──────────
 router.post('/', async (req, res) => {
   try {
     const { naturalLanguageIntent, channel } = req.body;
@@ -21,19 +21,16 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'naturalLanguageIntent is required' });
     }
 
-    // 1. AI: convert intent → filters
     const filters = await parseIntent(naturalLanguageIntent);
     const isEmptyFilters = Object.keys(filters).length === 0;
 
-    // 2. Segment preview: count + 3 samples
     const { count, samples } = await getSegmentPreview(filters);
 
-    // 3. Draft sample messages for the 3 preview customers
+    // hit gemini 3 times in parallel for the preview samples
     const sampleMessages = await Promise.all(
       samples.map((customer) => draftMessage(customer, naturalLanguageIntent)),
     );
 
-    // 4. Create campaign as draft
     const campaign = await Campaign.create({
       name: naturalLanguageIntent.slice(0, 80),
       naturalLanguageIntent,
@@ -44,7 +41,6 @@ router.post('/', async (req, res) => {
       status: 'draft',
     });
 
-    // 5. Return preview
     const response = {
       campaignId: campaign._id,
       filters,
@@ -64,7 +60,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ── POST /:id/send — Approve & Send campaign ────────────────────────────
 router.post('/:id/send', async (req, res) => {
   try {
     const campaign = await Campaign.findById(req.params.id);
@@ -75,10 +70,9 @@ router.post('/:id/send', async (req, res) => {
       return res.status(400).json({ error: 'Campaign already sent' });
     }
 
-    // 1. Get all matched customers
+    // the user clicked approve. grab everyone matching the filters, draft their texts, and fire away.
     const customers = await getMatchedCustomers(campaign.segmentFilters);
 
-    // 2. Draft personalised messages in batches of 10
     const batches = chunk(customers, 10);
     for (const batch of batches) {
       const messages = await Promise.all(
@@ -89,7 +83,6 @@ router.post('/:id/send', async (req, res) => {
       });
     }
 
-    // 3. Dispatch to channel service
     await dispatchCampaign(customers, campaign);
 
     res.json({ success: true, dispatched: customers.length });
@@ -99,7 +92,6 @@ router.post('/:id/send', async (req, res) => {
   }
 });
 
-// ── GET / — List all campaigns ───────────────────────────────────────────
 router.get('/', async (_req, res) => {
   try {
     const campaigns = await Campaign.find().sort({ createdAt: -1 }).lean();
@@ -109,7 +101,6 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// ── GET /:id — Single campaign detail ────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
     const campaign = await Campaign.findById(req.params.id);

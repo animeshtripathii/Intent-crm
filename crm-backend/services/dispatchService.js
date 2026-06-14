@@ -1,3 +1,4 @@
+// orchestrates the campaign dispatch. batches requests to the channel service to avoid timeouts.
 import Communication from '../models/Communication.js';
 import Campaign from '../models/Campaign.js';
 
@@ -12,7 +13,7 @@ const chunk = (arr, size) =>
 export const dispatchCampaign = async (customers, campaign) => {
   const channelServiceUrl = process.env.CHANNEL_SERVICE_URL;
 
-  // Step 1: Create all Communication documents upfront (status: 'sent')
+  // pre-create all comm records as 'sent' so the db is ready before we start hitting external services
   const communications = await Communication.insertMany(
     customers.map((customer) => ({
       campaignId: campaign._id,
@@ -25,14 +26,14 @@ export const dispatchCampaign = async (customers, campaign) => {
     })),
   );
 
-  // Step 2: Update campaign status to 'sending' and set audienceSize
+  // lock the campaign state
   await Campaign.findByIdAndUpdate(campaign._id, {
     status: 'sending',
     audienceSize: customers.length,
     'stats.sent': customers.length,
   });
 
-  // Step 3: Batch dispatch — 10 concurrent at a time
+  // Render free tier chokes on high concurrency, limit to 10 parallel HTTP calls
   const batches = chunk(communications, 10);
 
   for (const batch of batches) {
@@ -61,7 +62,8 @@ export const dispatchCampaign = async (customers, campaign) => {
         }
       }),
     );
-    await sleep(100); // small pause between batches
+    // gentle backoff to play nice with the channel service
+    await sleep(100);
   }
 
   console.log(`Dispatched ${communications.length} messages in ${batches.length} batches`);

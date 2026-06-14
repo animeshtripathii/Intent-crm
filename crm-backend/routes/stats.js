@@ -1,3 +1,4 @@
+// analytics dashboard data. queried every 3 seconds by the frontend live feed.
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import Campaign from '../models/Campaign.js';
@@ -6,35 +7,32 @@ import { generateInsight } from '../services/geminiService.js';
 
 const router = Router();
 
-// ── GET /:id — Full stats for a campaign ─────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    // 1. Find campaign
     const campaign = await Campaign.findById(req.params.id).lean();
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    // 2. Aggregate communication status breakdown
+    // group by status for the bar chart funnel
     const breakdown = await Communication.aggregate([
       { $match: { campaignId: new mongoose.Types.ObjectId(req.params.id) } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
-    // 3. Get 10 most recent communications with customer info
+    // feed shows the 10 latest events
     const recentActivity = await Communication.find({ campaignId: req.params.id })
       .sort({ updatedAt: -1 })
       .limit(10)
       .populate('customerId', 'name city')
       .lean();
 
-    // 4. Generate AI insight if campaign is completed
+    // only burn a gemini call for the insight if the campaign is fully done
     let insight = null;
     if (campaign.status === 'completed' && campaign.stats) {
       insight = await generateInsight(campaign.stats, campaign.name);
     }
 
-    // 5. Return response
     res.json({
       campaign: {
         _id: campaign._id,

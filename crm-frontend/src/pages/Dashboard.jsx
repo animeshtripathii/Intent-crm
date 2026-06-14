@@ -1,10 +1,9 @@
+// main landing page. shows aggregate stats and recent campaign history.
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE } from '../config.js';
-
-// ── Helpers ──────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   draft:     { label: 'Draft',     cls: 'bg-gray-100 text-gray-600',   border: 'border-l-4 border-gray-300' },
   sending:   { label: 'Sending',   cls: 'bg-blue-100 text-blue-700',   border: 'border-l-4 border-blue-400' },
@@ -20,7 +19,7 @@ const formatDate = (iso) =>
 const truncate = (str, n) =>
   str && str.length > n ? str.slice(0, n) + '…' : str;
 
-// ── Skeleton card ─────────────────────────────────────────────────────────
+// glimmering placeholder card to prevent layout shift while fetching
 const SkeletonCard = () => (
   <motion.div
     className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm pulse-dot glass-card"
@@ -39,7 +38,7 @@ const SkeletonCard = () => (
   </motion.div>
 );
 
-// ── Status badge ──────────────────────────────────────────────────────────
+
 const StatusBadge = ({ status }) => {
   const { label, cls } = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
   return (
@@ -49,7 +48,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// ── Campaign card ─────────────────────────────────────────────────────────
+
 const CampaignCard = ({ campaign, index }) => {
   const { _id, name, naturalLanguageIntent, createdAt, status, stats } = campaign;
   const borderClass = STATUS_CONFIG[status]?.border || 'border-l-4 border-gray-300';
@@ -67,7 +66,7 @@ const CampaignCard = ({ campaign, index }) => {
       >
         <div className="flex items-start justify-between gap-4 flex-wrap">
 
-          {/* Left — name, intent, date */}
+
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-gray-900 text-sm group-hover:text-black truncate">
               {truncate(name, 60)}
@@ -80,7 +79,7 @@ const CampaignCard = ({ campaign, index }) => {
             <p className="text-xs text-gray-400 mt-2">{formatDate(createdAt)}</p>
           </div>
 
-          {/* Right — badge, stats, link */}
+
           <div className="flex flex-col items-end gap-2 flex-shrink-0 mt-2 sm:mt-0">
             <StatusBadge status={status} />
 
@@ -103,7 +102,7 @@ const CampaignCard = ({ campaign, index }) => {
   );
 };
 
-// ── Empty state ───────────────────────────────────────────────────────────
+// what users see on day zero
 const EmptyState = () => (
   <motion.div
     initial={{ opacity: 0, scale: 0.95 }}
@@ -123,7 +122,7 @@ const EmptyState = () => (
   </motion.div>
 );
 
-// ── Main Component ────────────────────────────────────────────────────────
+
 export default function Dashboard() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -146,7 +145,7 @@ export default function Dashboard() {
     fetchCampaigns();
   }, []);
 
-  // Compute stats
+  // aggregate totals across all campaigns for the top metric cards
   const totalCampaigns = campaigns.length;
   const totalSent = campaigns.reduce((sum, c) => sum + (c.stats?.sent || 0), 0);
   const totalDelivered = campaigns.reduce((sum, c) => sum + (c.stats?.delivered || 0), 0);
@@ -155,7 +154,7 @@ export default function Dashboard() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
 
-      {/* ── Header ────────────────────────────────────────────────────── */}
+
       <motion.div
         className="flex items-center justify-between mb-8 slide-up"
       >
@@ -172,7 +171,7 @@ export default function Dashboard() {
         </Link>
       </motion.div>
 
-      {/* ── Stats Summary Row ─────────────────────────────────────────── */}
+
       {!loading && !error && campaigns.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <motion.div
@@ -207,7 +206,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Loading skeleton ───────────────────────────────────────────── */}
+
       {loading && (
         <div className="space-y-4">
           <SkeletonCard />
@@ -216,7 +215,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Error state ───────────────────────────────────────────────── */}
+
       {!loading && error && (
         <div className="text-center py-16">
           <p className="text-sm text-gray-500 mb-4">{error}</p>
@@ -229,10 +228,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Empty state ───────────────────────────────────────────────── */}
+
       {!loading && !error && campaigns.length === 0 && <EmptyState />}
 
-      {/* ── Campaign list ─────────────────────────────────────────────── */}
+
       {!loading && !error && campaigns.length > 0 && (
         <div className="space-y-4">
           <AnimatePresence>

@@ -1,8 +1,9 @@
+// all gemini calls go through here. extractJSON handles the markdown-wrapping quirk that gemini-2.0-flash has sometimes.
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ── Setup Key Rotation ───────────────────────────────────────────────────
+// rotates across multiple keys so we don't blow the free tier quota
 const getKeys = () => {
   if (process.env.GEMINI_API_KEYS) {
     return process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean);
@@ -37,21 +38,19 @@ const withKeyRotation = async (operation) => {
       switchKey();
       attempts++;
       if (attempts >= keys.length) {
-        throw err; // throw the last error if all keys failed
+        throw err;
       }
     }
   }
 };
 
-// ── Safe JSON Extractor ──────────────────────────────────────────────────
+// gemini wraps json in markdown sometimes. strip it before parsing.
 export const extractJSON = (rawText) => {
-  // Strip markdown code fences
   let cleaned = rawText
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/g, '')
     .trim();
 
-  // Find the first { ... } block
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) {
     throw new Error(`No JSON object found in Gemini response: ${rawText}`);
@@ -60,7 +59,7 @@ export const extractJSON = (rawText) => {
   return JSON.parse(match[0]);
 };
 
-// ── Parse Natural Language Intent → Filter Object ────────────────────────
+// turn plain english into mongodb filter keys
 const SYSTEM_PROMPT_PARSE = `You are a CRM data assistant. Convert natural language marketing goals into a JSON filter object. The customer collection has these fields: totalSpend (number, INR), totalOrders (number), lastOrderDate (ISO date string), city (string), tags (array of strings: vip, lapsed, new, repeat). Return ONLY valid JSON with no explanation. Supported filter keys: minSpend, maxSpend, minOrders, maxOrders, daysSinceLastOrder, city, tags, minOrderAmount.`;
 
 export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
@@ -91,13 +90,13 @@ export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
       return parseIntent(naturalLanguageIntent, attempt + 1);
     }
 
-    // Both attempts failed — return empty filters with warning
+    // gemini gave garbage twice in a row, fallback to empty filters so the app doesn't crash
     console.error('parseIntent failed after 2 attempts — returning empty filters');
     return {};
   }
 };
 
-// ── Draft Personalised Message ───────────────────────────────────────────
+// drafts short, personalized whatsapp messages per customer based on campaign intent
 export const draftMessage = async (customer, campaignGoal) => {
   const firstName = customer.name.split(' ')[0];
   const lastOrder = customer.lastOrderDate
@@ -125,7 +124,7 @@ Return ONLY the message text, nothing else.`;
   }
 };
 
-// ── Generate Campaign Insight ────────────────────────────────────────────
+// creates a 2-3 sentence summary for the analytics dashboard
 export const generateInsight = async (stats, campaignName) => {
   const systemPrompt = `You are a marketing analyst. Given campaign stats, write 2-3 insight sentences a marketer would find actionable. Be specific.`;
 

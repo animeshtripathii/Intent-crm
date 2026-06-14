@@ -1,3 +1,4 @@
+// real-time analytics view. polls the backend every 3s to update the funnel and activity feed.
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -7,8 +8,6 @@ import {
   ResponsiveContainer, Cell,
 } from 'recharts';
 import { API_BASE } from '../config.js';
-
-// ── Helpers ──────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
   delivered: '#10b981', // emerald-500
   failed:     '#f43f5e', // rose-500
@@ -38,7 +37,7 @@ const timeAgo = (date) => {
 const formatTime = (ts) =>
   ts ? new Date(ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 
-// ── Sub-components ────────────────────────────────────────────────────────
+
 const StatusBadge = ({ status }) => {
   const isCompleted = status === 'completed';
   const gradient = isCompleted 
@@ -73,7 +72,7 @@ const StatusDot = ({ status }) => (
   />
 );
 
-// Custom Tooltip for Recharts
+// cleaner tooltip style overriding the ugly recharts default
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
@@ -88,7 +87,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// ── Main Component ────────────────────────────────────────────────────────
+
 export default function CampaignAnalytics() {
   const { id } = useParams();
   const [stats, setStats]               = useState(null);
@@ -102,7 +101,7 @@ export default function CampaignAnalytics() {
       setStats(data);
       setLastUpdated(new Date());
 
-      // Stop polling when completed
+      // save server resources once the campaign finishes routing
       if (data.campaign?.status === 'completed' && intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -120,7 +119,7 @@ export default function CampaignAnalytics() {
     return () => clearInterval(intervalRef.current);
   }, [id]);
 
-  // ── Loading state ─────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto py-20 text-center text-gray-400">
@@ -142,7 +141,7 @@ export default function CampaignAnalytics() {
   const { campaign, breakdown = [], recentActivity = [], insight } = stats;
   const isCompleted = campaign?.status === 'completed';
 
-  // Transform breakdown for Recharts
+  // recharts needs data in a specific array format. sort it to match the actual funnel progression.
   const chartData = breakdown
     .filter((b) => b._id !== 'sent')
     .map((b) => ({ 
@@ -156,7 +155,7 @@ export default function CampaignAnalytics() {
   return (
     <div className="max-w-5xl mx-auto py-10 px-4 space-y-8">
 
-      {/* ── Header row ──────────────────────────────────────────────────── */}
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 leading-tight mb-2">
@@ -179,7 +178,7 @@ export default function CampaignAnalytics() {
         <StatusBadge status={campaign.status} />
       </div>
 
-      {/* ── Stat cards ──────────────────────────────────────────────────── */}
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {STAT_CARD_CONFIG.map(({ key, label, icon, gradient }, index) => (
           <StatCard
@@ -194,7 +193,7 @@ export default function CampaignAnalytics() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* ── Bar chart ───────────────────────────────────────────────────── */}
+
         <div className="lg:col-span-2 space-y-4">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Delivery Breakdown</h2>
@@ -221,7 +220,7 @@ export default function CampaignAnalytics() {
             </div>
           )}
           
-          {/* ── AI Insight ───────────────────────────────────────────────────── */}
+          {/* custom css gradient border trick for the insight box */}
           {insight && (
             <div 
               className="rounded-2xl p-6 relative mt-6 bg-white"
@@ -239,7 +238,7 @@ export default function CampaignAnalytics() {
           )}
         </div>
 
-        {/* ── Live Activity Feed ───────────────────────────────────────────── */}
+        {/* animate in new webhooks as they arrive from the backend */}
         <div className="lg:col-span-1 space-y-4">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900">Live Activity</h2>
@@ -300,7 +299,7 @@ export default function CampaignAnalytics() {
         </div>
       </div>
 
-      {/* ── Back button ──────────────────────────────────────────────────── */}
+
       <div className="pt-4 pb-10">
         <Link
           to="/"

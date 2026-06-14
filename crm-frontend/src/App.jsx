@@ -1,3 +1,4 @@
+// main router wrapper. sets up the global layout and navigation.
 import { BrowserRouter, Routes, Route, Link, NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dashboard from './pages/Dashboard';
@@ -7,7 +8,7 @@ import CampaignAnalytics from './pages/CampaignAnalytics';
 function App() {
   return (
     <BrowserRouter>
-      {/* ── Fixed Nav Bar ─────────────────────────────────────────────── */}
+      {/* fixed top nav so it stays put while scrolling long analytics pages */}
       <motion.nav
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -16,7 +17,7 @@ function App() {
       >
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
 
-          {/* Left — brand */}
+
           <Link to="/" className="flex flex-col leading-tight">
             <div className="flex items-center gap-2">
               <span className="float-animation text-lg">⚡</span>
@@ -32,7 +33,7 @@ function App() {
             </span>
           </Link>
 
-          {/* Right — nav links */}
+
           <div className="flex items-center gap-4">
             <NavLink
               to="/"
@@ -59,7 +60,7 @@ function App() {
         </div>
       </motion.nav>
 
-      {/* ── Page content — offset for fixed nav ───────────────────────── */}
+      {/* pad the top so the fixed nav doesn't cover the main content */}
       <main className="pt-16 min-h-screen bg-gray-50">
         <Routes>
           <Route path="/"                element={<Dashboard />} />

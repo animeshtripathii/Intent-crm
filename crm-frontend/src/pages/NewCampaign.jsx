@@ -1,10 +1,9 @@
+// the core chat-to-campaign flow. users type intent, preview the segment, and dispatch.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE } from '../config.js';
-
-// ── Helpers ─────────────────────────────────────────────────────────────
 const formatRs = (n) => `Rs ${Number(n).toLocaleString('en-IN')}`;
 
 const Spinner = () => (
@@ -20,7 +19,7 @@ const EXAMPLE_PROMPTS = [
   "Re-engage new customers who haven't bought yet"
 ];
 
-// ── Main Component ───────────────────────────────────────────────────────
+
 export default function NewCampaign() {
   const [intent, setIntent]         = useState('');
   const [channel, setChannel]       = useState('whatsapp');
@@ -29,7 +28,7 @@ export default function NewCampaign() {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
 
-  // ── Step 1 — Analyse ──────────────────────────────────────────────────
+  // hit the backend to parse natural language into segment filters and get preview samples
   const handleAnalyse = async () => {
     if (!intent.trim()) return;
     setLoading(true);
@@ -48,7 +47,7 @@ export default function NewCampaign() {
     }
   };
 
-  // ── Step 2 — Approve & Send ───────────────────────────────────────────
+  // lock it in and fire off the dispatch
   const handleSend = async () => {
     setStep('sending');
     setError(null);
@@ -61,7 +60,7 @@ export default function NewCampaign() {
     }
   };
 
-  // ── Reset ─────────────────────────────────────────────────────────────
+  // clear everything to start fresh
   const handleReset = () => {
     setIntent('');
     setChannel('whatsapp');
@@ -74,7 +73,7 @@ export default function NewCampaign() {
     <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-purple-50 via-white to-blue-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
 
-        {/* ── Section 1: Chat Input (always visible unless sending/sent) ── */}
+
         {(step === 'input' || step === 'preview') && (
           <div className="mb-10">
             <motion.div
@@ -107,7 +106,7 @@ export default function NewCampaign() {
                 className="w-full rounded-xl border-2 border-gray-200 px-5 py-4 text-lg resize-none min-h-32 focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-100 disabled:bg-gray-50 disabled:text-gray-400 transition-all shadow-sm"
               />
 
-              {/* Example Prompts */}
+              {/* quick start suggestions for the empty state */}
               {step === 'input' && (
                 <div className="flex flex-wrap gap-2 mt-4">
                   {EXAMPLE_PROMPTS.map((prompt, i) => (
@@ -154,7 +153,7 @@ export default function NewCampaign() {
               </div>
             </motion.div>
 
-            {/* Error banner */}
+
             {error && step === 'input' && (
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
@@ -167,7 +166,7 @@ export default function NewCampaign() {
           </div>
         )}
 
-        {/* ── Section 2: Segment Preview ─────────────────────────────────── */}
+
         <AnimatePresence>
           {step === 'preview' && campaignData && (
             <motion.div
@@ -176,7 +175,7 @@ export default function NewCampaign() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-8"
             >
-              {/* Matched count banner */}
+
               {campaignData.segmentCount > 0 ? (
                 <div className="rounded-xl bg-gradient-to-r from-green-400 to-emerald-500 text-white px-6 py-6 text-center shadow-lg shadow-green-200">
                   <div className="text-4xl font-bold mb-1">
@@ -191,7 +190,7 @@ export default function NewCampaign() {
                 </div>
               )}
 
-              {/* Warning (if filters were empty) */}
+              {/* show a yellow flag if the AI couldn't parse any filters so the user knows they're blasting the whole db */}
               {campaignData.warning && (
                 <div className="rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 px-5 py-4 text-sm font-medium shadow-sm">
                   ⚠️ {campaignData.warning}
@@ -204,7 +203,7 @@ export default function NewCampaign() {
                 </div>
               )}
 
-              {/* Filters badges */}
+              {/* debug view of what the AI actually parsed */}
               {campaignData.filters && Object.keys(campaignData.filters).length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(campaignData.filters).map(([k, v]) => (
@@ -216,7 +215,7 @@ export default function NewCampaign() {
                 </div>
               )}
 
-              {/* Sample customer cards */}
+
               {campaignData.sampleCustomers?.length > 0 && (
                 <div>
                   <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pl-1">
@@ -245,7 +244,7 @@ export default function NewCampaign() {
                 </div>
               )}
 
-              {/* Sample messages */}
+
               {campaignData.sampleMessages?.length > 0 && (
                 <div>
                   <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pl-1">
@@ -265,7 +264,7 @@ export default function NewCampaign() {
                 </div>
               )}
 
-              {/* Action buttons */}
+
               {campaignData.segmentCount > 0 && (
                 <div className="pt-4 pb-10">
                   <motion.button
@@ -291,7 +290,7 @@ export default function NewCampaign() {
           )}
         </AnimatePresence>
 
-        {/* ── Section 3: Sending State ────────────────────────────────────── */}
+
         {step === 'sending' && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
@@ -304,7 +303,7 @@ export default function NewCampaign() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-8">
               🚀 Sending to {campaignData?.segmentCount} customers...
             </h2>
-            {/* Animated progress bar */}
+            {/* fake 8-second progress bar to make the 'sending' state feel responsive */}
             <div className="w-full bg-white rounded-full h-3 shadow-inner overflow-hidden border border-gray-100">
               <motion.div 
                 className="h-full rounded-full"
@@ -317,7 +316,7 @@ export default function NewCampaign() {
           </motion.div>
         )}
 
-        {/* ── Section 4: Sent Confirmation ────────────────────────────────── */}
+
         {step === 'sent' && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}

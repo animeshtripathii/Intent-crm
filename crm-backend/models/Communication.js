@@ -1,3 +1,4 @@
+// tracks individual messages sent to a customer. status moves: sent -> delivered -> opened -> read -> clicked
 import mongoose from 'mongoose';
 
 const communicationSchema = new mongoose.Schema({
