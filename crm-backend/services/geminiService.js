@@ -1,111 +1,105 @@
-// all gemini calls go through here. extractJSON handles the markdown-wrapping quirk that gemini-2.0-flash has sometimes.
+// all gemini calls go through here. rotates keys and models on quota errors.
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// rotates across multiple keys so we don't blow the free tier quota
 const getKeys = () => {
-  // comma-separated list takes priority
   if (process.env.GEMINI_API_KEYS) {
     return process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean);
   }
-  // numbered keys fallback
   const numbered = [
     process.env.GEMINI_API_KEY_1,
     process.env.GEMINI_API_KEY_2,
     process.env.GEMINI_API_KEY_3,
     process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5,
+    process.env.GEMINI_API_KEY_6,
   ].filter(Boolean);
   if (numbered.length > 0) return numbered;
-  // single key last resort
   if (process.env.GEMINI_API_KEY) return [process.env.GEMINI_API_KEY.trim()];
   return [];
 };
 
-const keys = getKeys();
-console.log(`Loaded ${keys.length} Gemini API key(s)`);
-let currentKeyIndex = 0;
+const KEYS = getKeys();
+console.log(`Loaded ${KEYS.length} Gemini API key(s)`);
 
 const MODELS = [
+  'gemini-1.5-flash-8b',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
   'gemini-1.5-flash-latest',
-  'gemini-1.5-flash-8b',
 ];
-let currentModelIndex = 0;
 
-const getCurrentModel = () => MODELS[currentModelIndex];
-
-const rotateModel = () => {
-  currentModelIndex = (currentModelIndex + 1) % MODELS.length;
-  console.log(`[Gemini] Switched to model: ${MODELS[currentModelIndex]}`);
+const isQuotaError = (err) => {
+  const msg = (err.message || '').toLowerCase();
+  return (
+    msg.includes('429') ||
+    msg.includes('quota') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('rate limit') ||
+    msg.includes('too many requests') ||
+    msg.includes('exhausted') ||
+    msg.includes('limit exceeded')
+  );
 };
 
-const getClient = () => {
-  if (keys.length === 0) throw new Error('No Gemini API keys configured. Set GEMINI_API_KEYS.');
-  return new GoogleGenAI({ apiKey: keys[currentKeyIndex] });
+const isModelError = (err) => {
+  const msg = (err.message || '').toLowerCase();
+  return (
+    msg.includes('404') ||
+    msg.includes('not found') ||
+    msg.includes('deprecated') ||
+    msg.includes('not supported')
+  );
 };
 
-const switchKey = () => {
-  currentKeyIndex = (currentKeyIndex + 1) % keys.length;
-  console.log(`[Gemini API] Switched to key index ${currentKeyIndex}`);
-};
-
+// tries every key on every model before giving up
+// nested loop: model outer, key inner
 const withRetry = async (prompt) => {
-  const totalAttempts = keys.length * MODELS.length;
-  let attempts = 0;
+  if (KEYS.length === 0) {
+    throw new Error('No Gemini API keys found — set GEMINI_API_KEYS in env');
+  }
 
-  while (attempts < totalAttempts) {
-    try {
-      const client = getClient();
-      const model = getCurrentModel();
-      console.log(`[Gemini] Attempting with key ${currentKeyIndex + 1}, model: ${model}`);
-      
-      const response = await client.models.generateContent({
-        model,
-        contents: prompt,
-      });
-      return response.text;
-    } catch (err) {
-      const isQuota = err.message?.includes('429') ||
-                      err.message?.includes('quota') ||
-                      err.message?.includes('RESOURCE_EXHAUSTED') ||
-                      err.message?.includes('rate') ||
-                      err.message?.includes('limit');
+  for (let m = 0; m < MODELS.length; m++) {
+    const model = MODELS[m];
 
-      const isModelGone = err.message?.includes('404') ||
-                          err.message?.includes('not found') ||
-                          err.message?.includes('deprecated');
-
-      if (isQuota || isModelGone) {
-        console.warn(`[Gemini] Failed (key ${currentKeyIndex + 1}, model: ${getCurrentModel()}): ${err.message.slice(0, 80)}`);
-        // try next key first
-        switchKey();
-        // if we've gone through all keys, rotate model too
-        if (currentKeyIndex === 0) {
-          rotateModel();
+    for (let k = 0; k < KEYS.length; k++) {
+      try {
+        console.log(`[Gemini] Trying key ${k + 1}/${KEYS.length}, model: ${model}`);
+        const client = new GoogleGenAI({ apiKey: KEYS[k] });
+        const response = await client.models.generateContent({
+          model,
+          contents: prompt,
+        });
+        console.log(`[Gemini] Success with key ${k + 1}, model: ${model}`);
+        return response.text;
+      } catch (err) {
+        console.warn(
+          `[Gemini] key ${k + 1}/${KEYS.length} model ${model} failed: ${err.message?.slice(0, 80)}`
+        );
+        if (!isQuotaError(err) && !isModelError(err)) {
+          throw err;
         }
-        attempts++;
-        await new Promise(r => setTimeout(r, 500));
-      } else {
-        // non-quota error — throw immediately
-        throw err;
+        await new Promise(r => setTimeout(r, 300));
       }
     }
+
+    console.log(`[Gemini] All ${KEYS.length} keys exhausted on ${model} — trying next model`);
   }
-  throw new Error('All Gemini keys and models exhausted');
+
+  throw new Error(`All ${KEYS.length} keys × ${MODELS.length} models exhausted`);
 };
 
 // gemini wraps json in markdown sometimes. strip it before parsing.
 export const extractJSON = (rawText) => {
-  let cleaned = rawText
+  const cleaned = rawText
     .replace(/```json\s*/gi, '')
     .replace(/```\s*/g, '')
     .trim();
 
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) {
-    throw new Error(`No JSON object found in Gemini response: ${rawText}`);
+    throw new Error(`No JSON found in Gemini response: ${rawText}`);
   }
 
   return JSON.parse(match[0]);
@@ -117,14 +111,13 @@ const SYSTEM_PROMPT_PARSE = `You are a CRM data assistant. Convert natural langu
 export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
   try {
     const retryNote = attempt > 1
-      ? '\n\nIMPORTANT: Your previous response could not be parsed as JSON. Return STRICTLY valid JSON only. No markdown. No explanation. Just the JSON object.'
+      ? '\n\nIMPORTANT: Return STRICTLY valid JSON only. No markdown. No explanation. Just the JSON object.'
       : '';
 
     const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}${retryNote}`;
-
     const text = await withRetry(prompt);
-    console.log(`RAW GEMINI (attempt ${attempt}):`, text);
 
+    console.log(`RAW GEMINI (attempt ${attempt}):`, text);
     const parsed = extractJSON(text);
     console.log('PARSED FILTERS:', parsed);
     return parsed;
@@ -137,19 +130,19 @@ export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
       return parseIntent(naturalLanguageIntent, attempt + 1);
     }
 
-    // gemini gave garbage twice in a row, fallback to empty filters so the app doesn't crash
-    console.error('parseIntent failed after 2 attempts — returning empty filters');
+    // both attempts failed — match all customers rather than crash
+    console.error('parseIntent gave up — returning empty filters');
     return {};
   }
 };
 
-// drafts short, personalized whatsapp messages per customer based on campaign intent
+// short personalized whatsapp message per customer
 export const draftMessage = async (customer, campaignGoal) => {
   const firstName = customer.name.split(' ')[0];
   const lastOrder = customer.lastOrderDate
     ? new Date(customer.lastOrderDate).toLocaleDateString('en-IN', {
-      day: 'numeric', month: 'short', year: 'numeric',
-    })
+        day: 'numeric', month: 'short', year: 'numeric',
+      })
     : 'N/A';
 
   const prompt = `You are a marketing copywriter for a D2C brand. Write a short personalized WhatsApp message under 160 characters. Tone: warm, friendly, direct. Always include the customer's first name.
@@ -164,18 +157,18 @@ Return ONLY the message text, nothing else.`;
     return text.trim();
   } catch (err) {
     console.error('draftMessage error:', err.message);
-    return `Hey ${firstName}! We have something special for you. Check it out — ${campaignGoal}`;
+    return `Hey ${firstName}! We have something special for you — ${campaignGoal}`;
   }
 };
 
-// creates a 2-3 sentence summary for the analytics dashboard
+// 2-3 sentence summary shown on the analytics page after campaign completes
 export const generateInsight = async (stats, campaignName) => {
-  const systemPrompt = `You are a marketing analyst. Given campaign stats, write 2-3 insight sentences a marketer would find actionable. Be specific.`;
+  const prompt = `You are a marketing analyst. Given campaign stats, write 2-3 insight sentences a marketer would find actionable. Be specific.
 
-  const userPrompt = `Campaign: ${campaignName}. Sent: ${stats.sent}. Delivered: ${stats.delivered}. Opened: ${stats.opened}. Clicked: ${stats.clicked}. Failed: ${stats.failed}.`;
+Campaign: ${campaignName}. Sent: ${stats.sent}. Delivered: ${stats.delivered}. Opened: ${stats.opened}. Read: ${stats.read || 0}. Clicked: ${stats.clicked}. Failed: ${stats.failed}.`;
 
   try {
-    const text = await withRetry(`${systemPrompt}\n\n${userPrompt}`);
+    const text = await withRetry(prompt);
     return text.trim();
   } catch (err) {
     console.error('generateInsight error:', err.message);
