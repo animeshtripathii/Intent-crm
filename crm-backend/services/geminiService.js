@@ -24,10 +24,10 @@ const KEYS = getKeys();
 console.log(`Loaded ${KEYS.length} Gemini API key(s)`);
 
 const MODELS = [
-  'gemini-1.5-flash-8b',
-  'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-latest',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash',
+  'gemini-3.0-flash',
 ];
 
 const isQuotaError = (err) => {
