@@ -2,8 +2,46 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ── Setup ────────────────────────────────────────────────────────────────
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// ── Setup Key Rotation ───────────────────────────────────────────────────
+const getKeys = () => {
+  if (process.env.GEMINI_API_KEYS) {
+    return process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean);
+  }
+  if (process.env.GEMINI_API_KEY) {
+    return [process.env.GEMINI_API_KEY.trim()];
+  }
+  return [];
+};
+
+const keys = getKeys();
+let currentKeyIndex = 0;
+
+const getClient = () => {
+  if (keys.length === 0) throw new Error('No Gemini API keys configured. Set GEMINI_API_KEYS.');
+  return new GoogleGenAI({ apiKey: keys[currentKeyIndex] });
+};
+
+const switchKey = () => {
+  currentKeyIndex = (currentKeyIndex + 1) % keys.length;
+  console.log(`[Gemini API] Switched to key index ${currentKeyIndex}`);
+};
+
+const withKeyRotation = async (operation) => {
+  let attempts = 0;
+  while (attempts < Math.max(keys.length, 1)) {
+    try {
+      const client = getClient();
+      return await operation(client);
+    } catch (err) {
+      console.warn(`[Gemini API] Error with key index ${currentKeyIndex}: ${err.message}`);
+      switchKey();
+      attempts++;
+      if (attempts >= keys.length) {
+        throw err; // throw the last error if all keys failed
+      }
+    }
+  }
+};
 
 // ── Safe JSON Extractor ──────────────────────────────────────────────────
 export const extractJSON = (rawText) => {
@@ -33,10 +71,11 @@ export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
 
     const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}${retryNote}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+    const response = await withKeyRotation(client => client.models.generateContent({
+      model: 'gemini-2.0-flash',
       contents: prompt,
-    });
+    }));
+    
     const text = response.text;
     console.log(`RAW GEMINI (attempt ${attempt}):`, text);
 
@@ -75,10 +114,10 @@ Campaign goal: ${campaignGoal}
 Return ONLY the message text, nothing else.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withKeyRotation(client => client.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: prompt,
-    });
+    }));
     return response.text.trim();
   } catch (err) {
     console.error('draftMessage error:', err.message);
@@ -93,10 +132,10 @@ export const generateInsight = async (stats, campaignName) => {
   const userPrompt = `Campaign: ${campaignName}. Sent: ${stats.sent}. Delivered: ${stats.delivered}. Opened: ${stats.opened}. Clicked: ${stats.clicked}. Failed: ${stats.failed}.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await withKeyRotation(client => client.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: `${systemPrompt}\n\n${userPrompt}`,
-    });
+    }));
     return response.text.trim();
   } catch (err) {
     console.error('generateInsight error:', err.message);

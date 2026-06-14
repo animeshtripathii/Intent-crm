@@ -25,8 +25,8 @@ Three separate services:
 ┌─────────────────┐     ┌──────────────────────┐     ┌─────────────────────┐
 │  CRM Frontend   │────▶│    CRM Backend        │────▶│   Channel Service   │
 │  React + Vite   │     │  Node.js + Express    │     │  Node.js + Express  │
-│  Vercel         │     │  MongoDB + Gemini AI  │     │  Railway            │
-│                 │◀────│  Railway              │◀────│                     │
+│  Vercel         │     │  MongoDB + Gemini AI  │     │  Render             │
+│                 │◀────│  Render               │◀────│                     │
 └─────────────────┘     └──────────────────────┘     └─────────────────────┘
   (polls /api/stats)      (/api/receipt callbacks)
 ```
@@ -85,7 +85,7 @@ All Gemini calls use a safe `extractJSON()` wrapper that strips markdown fences 
 | Database | MongoDB Atlas | Flexible schema for segment JSON |
 | AI | Google Gemini 2.0 Flash | Best JSON instruction-following |
 | Channel Svc | Separate Express app | Required two-service architecture |
-| Hosting | Vercel (frontend) + Railway (backend) | Free tier, fast deploys |
+| Hosting | Vercel (frontend) + Render (backend) | Free tier, fast deploys |
 
 ---
 
@@ -111,7 +111,7 @@ Hardcoded session — implementing full auth would cost a full day for zero addi
 ## Interview Notes — Defending Key Decisions
 
 **Batched dispatch — why 10 concurrent:**
-Constraint: free-tier Railway has limited memory per instance.
+Constraint: free-tier Render has limited memory per instance.
 10 concurrent HTTP calls = low memory footprint + no timeout risk.
 Time complexity: O(n/10) batches × O(1) per batch = O(n) total.
 Space: O(10) open connections at any time.
@@ -225,21 +225,43 @@ I used AI throughout the build, not just as autocomplete:
 
 ---
 
-## Environment Variables
+## Deployment Guide
+
+### 1. Backend Deployment (Render)
+I've included a `render.yaml` Blueprint file for 1-click deployment.
+1. Push this repository to GitHub.
+2. Go to [Render Dashboard](https://dashboard.render.com/) > New > Blueprint.
+3. Connect your GitHub repository.
+4. Render will automatically detect and create both `xeno-crm-backend` and `xeno-channel-service`.
+5. **IMPORTANT:** Go to the Environment section for `xeno-crm-backend` in the Render dashboard and manually add your `MONGODB_URI` and `GEMINI_API_KEYS`.
+*(Note: The `CHANNEL_SERVICE_SECRET` is auto-generated securely and shared between the two services!)*
+
+### 2. Frontend Deployment (Vercel)
+1. Go to [Vercel Dashboard](https://vercel.com/) > Add New > Project.
+2. Connect your GitHub repository.
+3. Set **Framework Preset** to `Vite`.
+4. Set **Root Directory** to `crm-frontend`.
+5. Add Environment Variable:
+   - `VITE_API_URL` = `https://your-crm-backend.onrender.com` (Get this from your Render dashboard)
+6. Click Deploy.
+
+---
+
+## Environment Variables Reference
 
 **`crm-backend/.env`**
 ```env
 MONGODB_URI=mongodb+srv://...
-GEMINI_API_KEY=AIzaSy...
-CHANNEL_SERVICE_URL=https://your-channel-service.railway.app
-CRM_PUBLIC_URL=https://your-crm-backend.railway.app
+GEMINI_API_KEYS=key1,key2,key3
+CHANNEL_SERVICE_URL=https://xeno-channel-service.onrender.com
+CRM_PUBLIC_URL=https://xeno-crm-backend.onrender.com
 CHANNEL_SERVICE_SECRET=xeno-internal-secret-2024
 PORT=5000
 ```
 
 **`channel-service/.env`**
 ```env
-CRM_RECEIPT_URL=https://your-crm-backend.railway.app/api/receipt
+CRM_RECEIPT_URL=https://xeno-crm-backend.onrender.com/api/receipt
 CHANNEL_SERVICE_SECRET=xeno-internal-secret-2024
 PORT=5001
 ```
@@ -248,9 +270,9 @@ PORT=5001
 
 **`crm-frontend/.env`**
 ```env
-VITE_API_URL=https://your-crm-backend.railway.app
+VITE_API_URL=https://xeno-crm-backend.onrender.com
 ```
 
 ---
 
-> **Note:** Replace all placeholder URLs with actual deployed URLs once Railway and Vercel deployment is complete.
+> **Note:** Replace all placeholder URLs with actual deployed URLs once Render and Vercel deployment is complete.

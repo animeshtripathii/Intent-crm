@@ -1,0 +1,39 @@
+services:
+  # ── 1. Channel Service ────────────────────────────────────────────────
+  - type: web
+    name: xeno-channel-service
+    env: node
+    rootDir: channel-service
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: "5001"
+      - key: CRM_RECEIPT_URL
+        # We will replace this with the actual backend URL after deployment
+        value: "https://your-crm-backend.onrender.com/api/receipt"
+      - key: CHANNEL_SERVICE_SECRET
+        generateValue: true # Render will auto-generate a secure random secret
+
+  # ── 2. CRM Backend ────────────────────────────────────────────────────
+  - type: web
+    name: xeno-crm-backend
+    env: node
+    rootDir: crm-backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: "5000"
+      - key: MONGODB_URI
+        sync: false # You must set this manually in the Render dashboard!
+      - key: GEMINI_API_KEYS
+        sync: false # You must set this manually in the Render dashboard!
+      - key: CHANNEL_SERVICE_SECRET
+        fromService:
+          type: web
+          name: xeno-channel-service
+          envVarKey: CHANNEL_SERVICE_SECRET
+      - key: CHANNEL_SERVICE_URL
+        # Render internal networking URL (much faster, saves external bandwidth)
+        value: "http://xeno-channel-service:5001"
