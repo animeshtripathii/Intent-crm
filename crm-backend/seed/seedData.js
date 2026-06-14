@@ -142,6 +142,13 @@ const segments = [
       return { totalSpend, totalOrders, lastOrderDate, tags: ['vip'] };
     },
   },
+  {
+    label: 'New (No Orders)',
+    count: 20,
+    gen: () => {
+      return { totalSpend: 0, totalOrders: 0, lastOrderDate: null, tags: ['new'] };
+    },
+  },
 ];
 
 // ── Main ────────────────────────────────────────────────────────────────
@@ -174,13 +181,15 @@ async function seed() {
       // Insert customer first to get _id
       const customer = await Customer.create(customerData);
 
-      const customerOrders = buildOrders(
-        customer._id,
-        overrides.totalSpend,
-        orderCount,
-        overrides.lastOrderDate,
-      );
-      orders.push(...customerOrders);
+      if (orderCount > 0) {
+        const customerOrders = buildOrders(
+          customer._id,
+          overrides.totalSpend,
+          orderCount,
+          overrides.lastOrderDate,
+        );
+        orders.push(...customerOrders);
+      }
       totalCustomers++;
     }
 

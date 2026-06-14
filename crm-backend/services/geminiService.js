@@ -114,7 +114,7 @@ Return ONLY the message text, nothing else.`;
 
   try {
     const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
     }));
     return response.text.trim();
@@ -132,7 +132,7 @@ export const generateInsight = async (stats, campaignName) => {
 
   try {
     const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: `${systemPrompt}\n\n${userPrompt}`,
     }));
     return response.text.trim();
