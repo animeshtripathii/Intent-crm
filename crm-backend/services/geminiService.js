@@ -26,6 +26,21 @@ const keys = getKeys();
 console.log(`Loaded ${keys.length} Gemini API key(s)`);
 let currentKeyIndex = 0;
 
+const MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-flash-8b',
+];
+let currentModelIndex = 0;
+
+const getCurrentModel = () => MODELS[currentModelIndex];
+
+const rotateModel = () => {
+  currentModelIndex = (currentModelIndex + 1) % MODELS.length;
+  console.log(`[Gemini] Switched to model: ${MODELS[currentModelIndex]}`);
+};
+
 const getClient = () => {
   if (keys.length === 0) throw new Error('No Gemini API keys configured. Set GEMINI_API_KEYS.');
   return new GoogleGenAI({ apiKey: keys[currentKeyIndex] });
@@ -36,21 +51,49 @@ const switchKey = () => {
   console.log(`[Gemini API] Switched to key index ${currentKeyIndex}`);
 };
 
-const withKeyRotation = async (operation) => {
+const withRetry = async (prompt) => {
+  const totalAttempts = keys.length * MODELS.length;
   let attempts = 0;
-  while (attempts < Math.max(keys.length, 1)) {
+
+  while (attempts < totalAttempts) {
     try {
       const client = getClient();
-      return await operation(client);
+      const model = getCurrentModel();
+      console.log(`[Gemini] Attempting with key ${currentKeyIndex + 1}, model: ${model}`);
+      
+      const response = await client.models.generateContent({
+        model,
+        contents: prompt,
+      });
+      return response.text;
     } catch (err) {
-      console.warn(`[Gemini API] Error with key index ${currentKeyIndex}: ${err.message}`);
-      switchKey();
-      attempts++;
-      if (attempts >= keys.length) {
+      const isQuota = err.message?.includes('429') ||
+                      err.message?.includes('quota') ||
+                      err.message?.includes('RESOURCE_EXHAUSTED') ||
+                      err.message?.includes('rate') ||
+                      err.message?.includes('limit');
+
+      const isModelGone = err.message?.includes('404') ||
+                          err.message?.includes('not found') ||
+                          err.message?.includes('deprecated');
+
+      if (isQuota || isModelGone) {
+        console.warn(`[Gemini] Failed (key ${currentKeyIndex + 1}, model: ${getCurrentModel()}): ${err.message.slice(0, 80)}`);
+        // try next key first
+        switchKey();
+        // if we've gone through all keys, rotate model too
+        if (currentKeyIndex === 0) {
+          rotateModel();
+        }
+        attempts++;
+        await new Promise(r => setTimeout(r, 500));
+      } else {
+        // non-quota error — throw immediately
         throw err;
       }
     }
   }
+  throw new Error('All Gemini keys and models exhausted');
 };
 
 // gemini wraps json in markdown sometimes. strip it before parsing.
@@ -79,12 +122,7 @@ export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
 
     const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}${retryNote}`;
 
-    const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-    }));
-
-    const text = response.text;
+    const text = await withRetry(prompt);
     console.log(`RAW GEMINI (attempt ${attempt}):`, text);
 
     const parsed = extractJSON(text);
@@ -122,11 +160,8 @@ Campaign goal: ${campaignGoal}
 Return ONLY the message text, nothing else.`;
 
   try {
-    const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: prompt,
-    }));
-    return response.text.trim();
+    const text = await withRetry(prompt);
+    return text.trim();
   } catch (err) {
     console.error('draftMessage error:', err.message);
     return `Hey ${firstName}! We have something special for you. Check it out — ${campaignGoal}`;
@@ -140,13 +175,8 @@ export const generateInsight = async (stats, campaignName) => {
   const userPrompt = `Campaign: ${campaignName}. Sent: ${stats.sent}. Delivered: ${stats.delivered}. Opened: ${stats.opened}. Clicked: ${stats.clicked}. Failed: ${stats.failed}.`;
 
   try {
-    const response = await withKeyRotation(client =>
-      client.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: `${systemPrompt}\n\n${userPrompt}`,
-      })
-    );
-    return response.text.trim();
+    const text = await withRetry(`${systemPrompt}\n\n${userPrompt}`);
+    return text.trim();
   } catch (err) {
     console.error('generateInsight error:', err.message);
     return 'Insight unavailable.';
