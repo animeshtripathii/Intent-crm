@@ -108,6 +108,27 @@ Hardcoded session — implementing full auth would cost a full day for zero addi
 
 ---
 
+## Interview Notes — Defending Key Decisions
+
+**Batched dispatch — why 10 concurrent:**
+Constraint: free-tier Railway has limited memory per instance.
+10 concurrent HTTP calls = low memory footprint + no timeout risk.
+Time complexity: O(n/10) batches × O(1) per batch = O(n) total.
+Space: O(10) open connections at any time.
+At scale: replace with BullMQ workers — same O(n) complexity but distributed across N machines.
+
+**Polling — why 3 seconds:**
+Constraint: this is a campaign tool, not a chat app. 
+3s latency on status updates is acceptable.
+Cost: 1 GET request per 3s per open analytics tab.
+At scale: SSE pushes only on state change — 0 requests when nothing is happening.
+
+**Callback loop — ordering guarantee:**
+The channel service fires callbacks sequentially per communication (delivered → opened → read → clicked). The CRM receipt endpoint checks statusHistory before writing — out-of-order callbacks are safely ignored via the idempotency check.
+At scale: add a sequence number to each callback and reject lower sequence numbers than the last recorded one.
+
+---
+
 ## Project Structure
 
 ```
@@ -188,7 +209,7 @@ This system is designed for a demo with 300 customers. Production considerations
 - **Gemini calls:** Batch similar customers, generate template variations rather than one call per customer
 - **Live feed:** Replace 3s polling with WebSocket or Server-Sent Events
 - **Database:** Add compound indexes on `(campaignId + status)` in communications collection for faster analytics queries
-- **Callback ingestion at scale:** At 1M customers × 4 callbacks = 4M POST requests hitting `/api/receipt`. A single Express server collapses under this load. Fix: put callbacks into Amazon SQS or Kafka first, drain with bulk MongoDB writes. Idempotency keys (already implemented) prevent double-counting from duplicate callbacks.
+- **Callback ingestion at scale:** At 1M customers × 4 callbacks = 4M POST requests hitting `/api/receipt`. A single Express server collapses under this load. Fix: put callbacks into Amazon SQS or Kafka first, drain with bulk MongoDB writes. Idempotency protection (already implemented in /api/receipt — checks statusHistory.some() before any DB write, duplicate callbacks return 200 with duplicate:true flag, no double-counting).
 
 ---
 
@@ -212,14 +233,18 @@ MONGODB_URI=mongodb+srv://...
 GEMINI_API_KEY=AIzaSy...
 CHANNEL_SERVICE_URL=https://your-channel-service.railway.app
 CRM_PUBLIC_URL=https://your-crm-backend.railway.app
+CHANNEL_SERVICE_SECRET=xeno-internal-secret-2024
 PORT=5000
 ```
 
 **`channel-service/.env`**
 ```env
 CRM_RECEIPT_URL=https://your-crm-backend.railway.app/api/receipt
+CHANNEL_SERVICE_SECRET=xeno-internal-secret-2024
 PORT=5001
 ```
+
+> **Security note:** `CHANNEL_SERVICE_SECRET` is a shared secret between the CRM backend and channel service. All requests to `/simulate` and `/api/receipt` are validated against this header (`x-api-key`). Requests without the correct secret return 401.
 
 **`crm-frontend/.env`**
 ```env

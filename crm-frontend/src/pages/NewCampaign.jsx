@@ -1,17 +1,24 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE } from '../config.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 const formatRs = (n) => `Rs ${Number(n).toLocaleString('en-IN')}`;
 
 const Spinner = () => (
-  <svg className="animate-spin h-4 w-4 mr-2 inline" viewBox="0 0 24 24" fill="none">
+  <svg className="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24" fill="none">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
   </svg>
 );
+
+const EXAMPLE_PROMPTS = [
+  "Win back lapsed customers with 15% off",
+  "Reward VIP customers in Delhi",
+  "Re-engage new customers who haven't bought yet"
+];
 
 // ── Main Component ───────────────────────────────────────────────────────
 export default function NewCampaign() {
@@ -64,195 +71,283 @@ export default function NewCampaign() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4">
+    <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-purple-50 via-white to-blue-50 py-12 px-4">
+      <div className="max-w-2xl mx-auto">
 
-      {/* ── Section 1: Chat Input (always visible) ─────────────────────── */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">New Campaign</h1>
-        <p className="text-gray-500 text-sm mb-4">Describe your campaign goal in plain English</p>
+        {/* ── Section 1: Chat Input (always visible unless sending/sent) ── */}
+        {(step === 'input' || step === 'preview') && (
+          <div className="mb-10">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">What's your campaign goal?</h1>
+            </motion.div>
+            
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="text-gray-500 mb-6"
+            >
+              Describe it in plain English — AI handles the rest
+            </motion.p>
 
-        <textarea
-          rows={4}
-          value={intent}
-          onChange={(e) => setIntent(e.target.value)}
-          disabled={step === 'sending' || step === 'sent'}
-          placeholder='e.g. Win back customers who haven&apos;t bought in 60 days with 15% off'
-          className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent disabled:bg-gray-50 disabled:text-gray-400"
-        />
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <textarea
+                rows={4}
+                value={intent}
+                onChange={(e) => setIntent(e.target.value)}
+                disabled={loading || step === 'preview'}
+                placeholder="e.g. Win back customers who haven't bought in 60 days with a 15% discount..."
+                className="w-full rounded-xl border-2 border-gray-200 px-5 py-4 text-lg resize-none min-h-32 focus:outline-none focus:border-purple-400 focus:ring-4 focus:ring-purple-100 disabled:bg-gray-50 disabled:text-gray-400 transition-all shadow-sm"
+              />
 
-        <div className="flex items-center justify-between mt-3">
-          {/* Channel selector */}
-          <select
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-            disabled={step === 'sending' || step === 'sent'}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black disabled:bg-gray-50"
-          >
-            <option value="whatsapp">WhatsApp</option>
-            <option value="sms">SMS</option>
-            <option value="email">Email</option>
-            <option value="rcs">RCS</option>
-          </select>
+              {/* Example Prompts */}
+              {step === 'input' && (
+                <div className="flex flex-wrap gap-2 mt-4">
+                  {EXAMPLE_PROMPTS.map((prompt, i) => (
+                    <motion.button
+                      key={prompt}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.3 + (i * 0.1) }}
+                      onClick={() => setIntent(prompt)}
+                      className="rounded-full border border-purple-200 text-purple-600 px-4 py-1.5 text-sm hover:bg-purple-50 transition-colors bg-white shadow-sm"
+                    >
+                      {prompt}
+                    </motion.button>
+                  ))}
+                </div>
+              )}
 
-          {/* Analyse button */}
-          <button
-            onClick={handleAnalyse}
-            disabled={!intent.trim() || loading || step !== 'input'}
-            className="rounded-lg bg-black px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center"
-          >
-            {loading && <Spinner />}
-            {loading ? 'Analysing...' : 'Analyse Segment'}
-          </button>
-        </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6">
+                <select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value)}
+                  disabled={loading || step === 'preview'}
+                  className="rounded-lg border-2 border-gray-200 px-4 py-3 text-base focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 disabled:bg-gray-50 shadow-sm"
+                >
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="sms">SMS</option>
+                  <option value="email">Email</option>
+                  <option value="rcs">RCS</option>
+                </select>
 
-        {/* Error banner */}
-        {error && (
-          <div className="mt-3 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
-            {error}
+                {step === 'input' && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleAnalyse}
+                    disabled={!intent.trim() || loading}
+                    className="rounded-xl px-8 py-3 text-base font-semibold text-white shadow-lg shadow-purple-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
+                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  >
+                    {loading && <Spinner />}
+                    {loading ? 'Analysing with AI...' : 'Analyse Segment'}
+                  </motion.button>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Error banner */}
+            {error && step === 'input' && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 rounded-xl bg-red-50 border border-red-200 text-red-700 px-5 py-4 text-sm font-medium shadow-sm"
+              >
+                {error}
+              </motion.div>
+            )}
           </div>
         )}
+
+        {/* ── Section 2: Segment Preview ─────────────────────────────────── */}
+        <AnimatePresence>
+          {step === 'preview' && campaignData && (
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-8"
+            >
+              {/* Matched count banner */}
+              {campaignData.segmentCount > 0 ? (
+                <div className="rounded-xl bg-gradient-to-r from-green-400 to-emerald-500 text-white px-6 py-6 text-center shadow-lg shadow-green-200">
+                  <div className="text-4xl font-bold mb-1">
+                    ✓ {campaignData.segmentCount}
+                  </div>
+                  <div className="text-lg opacity-90 font-medium">customers matched</div>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-gradient-to-r from-red-400 to-rose-500 text-white px-6 py-6 text-center shadow-lg shadow-red-200">
+                  <div className="text-4xl font-bold mb-1">✗ 0</div>
+                  <div className="text-lg opacity-90 font-medium">No customers matched — try a different campaign goal</div>
+                </div>
+              )}
+
+              {/* Warning (if filters were empty) */}
+              {campaignData.warning && (
+                <div className="rounded-xl bg-yellow-50 border border-yellow-200 text-yellow-800 px-5 py-4 text-sm font-medium shadow-sm">
+                  ⚠️ {campaignData.warning}
+                </div>
+              )}
+
+              {error && (
+                <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-5 py-4 text-sm font-medium shadow-sm">
+                  {error}
+                </div>
+              )}
+
+              {/* Filters badges */}
+              {campaignData.filters && Object.keys(campaignData.filters).length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(campaignData.filters).map(([k, v]) => (
+                    <span key={k} className="rounded-full bg-purple-600 text-white px-4 py-1.5 text-sm font-medium shadow-md flex items-center gap-1.5">
+                      <span className="opacity-75">✦</span>
+                      {k}: {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Sample customer cards */}
+              {campaignData.sampleCustomers?.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pl-1">
+                    Sample Customers
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {campaignData.sampleCustomers.map((c) => (
+                      <motion.div 
+                        key={c._id} 
+                        whileHover={{ scale: 1.02 }}
+                        className="glass-card rounded-xl p-5"
+                      >
+                        <p className="font-bold text-gray-900 text-base truncate">{c.name}</p>
+                        <p className="text-sm text-gray-500 mb-3">{c.city}</p>
+                        <p className="text-lg text-green-600 font-semibold mb-3">{formatRs(c.totalSpend)}</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(c.tags || []).map((t) => (
+                            <span key={t} className="rounded-full bg-purple-100 text-purple-700 px-2.5 py-1 text-xs font-semibold">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sample messages */}
+              {campaignData.sampleMessages?.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 pl-1">
+                    Sample Messages
+                  </h2>
+                  <div className="space-y-3">
+                    {campaignData.sampleMessages.map((msg, i) => (
+                      <div 
+                        key={i} 
+                        className="rounded-xl bg-purple-50 p-5 text-base text-gray-800 italic shadow-sm"
+                        style={{ borderLeft: '3px solid', borderImage: 'linear-gradient(to bottom, #a855f7, #3b82f6) 1' }}
+                      >
+                        "{msg}"
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              {campaignData.segmentCount > 0 && (
+                <div className="pt-4 pb-10">
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    onClick={handleSend}
+                    className="w-full rounded-xl py-4 text-lg font-bold text-white shadow-xl shadow-purple-200 flex items-center justify-center gap-3"
+                    style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+                  >
+                    <span className="text-2xl">🚀</span> Approve & Send Campaign
+                  </motion.button>
+                  <div className="text-center mt-6">
+                    <button
+                      onClick={handleReset}
+                      className="text-sm font-medium text-gray-400 hover:text-gray-700 transition-colors"
+                    >
+                      ← Start over with a different goal
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Section 3: Sending State ────────────────────────────────────── */}
+        {step === 'sending' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-20"
+          >
+            <div className="flex justify-center mb-8">
+              <div className="w-16 h-16 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-8">
+              🚀 Sending to {campaignData?.segmentCount} customers...
+            </h2>
+            {/* Animated progress bar */}
+            <div className="w-full bg-white rounded-full h-3 shadow-inner overflow-hidden border border-gray-100">
+              <motion.div 
+                className="h-full rounded-full"
+                style={{ background: 'linear-gradient(90deg, #a855f7, #3b82f6)' }}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 8, ease: "linear" }}
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Section 4: Sent Confirmation ────────────────────────────────── */}
+        {step === 'sent' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-20"
+          >
+            <div className="text-7xl mb-6 float-animation">✅</div>
+            <h2 className="text-3xl font-bold gradient-text mb-3">Campaign Sent!</h2>
+            <p className="text-gray-500 text-lg mb-10">
+              Dispatched to {campaignData?.segmentCount} customers
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                to={`/analytics/${campaignData?.campaignId}`}
+                className="rounded-xl px-8 py-3 text-base font-semibold text-white hover:opacity-90 transition-all shadow-lg shadow-purple-200"
+                style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+              >
+                View Analytics →
+              </Link>
+              <button
+                onClick={handleReset}
+                className="rounded-xl px-8 py-3 text-base font-semibold text-gray-700 bg-white border-2 border-gray-100 hover:bg-gray-50 transition-all shadow-sm"
+              >
+                Create another
+              </button>
+            </div>
+          </motion.div>
+        )}
+
       </div>
-
-      {/* ── Section 2: Segment Preview ─────────────────────────────────── */}
-      {step === 'preview' && campaignData && (
-        <div className="space-y-6">
-
-          {/* Matched count */}
-          {campaignData.segmentCount > 0 ? (
-            <div className="rounded-lg bg-green-50 border border-green-200 text-green-800 px-4 py-3 text-sm font-medium">
-              ✓ {campaignData.segmentCount} customers matched
-            </div>
-          ) : (
-            <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
-              ✗ No customers matched — try a different campaign goal
-            </div>
-          )}
-
-          {/* Warning (if filters were empty) */}
-          {campaignData.warning && (
-            <div className="rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 text-sm">
-              ⚠️ {campaignData.warning}
-            </div>
-          )}
-
-          {/* Filters badges */}
-          {campaignData.filters && Object.keys(campaignData.filters).length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(campaignData.filters).map(([k, v]) => (
-                <span key={k} className="rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-mono">
-                  {k}: {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Sample customer cards */}
-          {campaignData.sampleCustomers?.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
-                Sample Customers
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {campaignData.sampleCustomers.map((c) => (
-                  <div key={c._id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{c.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">{c.city}</p>
-                    <p className="text-xs text-gray-700 mt-1 font-medium">{formatRs(c.totalSpend)}</p>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {(c.tags || []).map((t) => (
-                        <span key={t} className="rounded-full bg-indigo-100 text-indigo-700 px-2 py-0.5 text-xs">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Sample messages */}
-          {campaignData.sampleMessages?.length > 0 && (
-            <div>
-              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
-                Sample Messages
-              </h2>
-              <div className="space-y-2">
-                {campaignData.sampleMessages.map((msg, i) => (
-                  <div key={i} className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-900">
-                    {msg}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Action buttons */}
-          <div className="flex items-center justify-between pt-2">
-            <button
-              onClick={handleReset}
-              className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-            >
-              ← Start over
-            </button>
-            <button
-              onClick={handleSend}
-              className="rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white hover:bg-green-700 transition-colors shadow"
-            >
-              Approve & Send Campaign
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Section 3: Sending State ────────────────────────────────────── */}
-      {step === 'sending' && (
-        <div className="text-center py-12">
-          <p className="text-gray-700 text-base font-medium mb-6">
-            🚀 Sending campaign to {campaignData?.segmentCount} customers...
-          </p>
-          {/* Animated progress bar */}
-          <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
-            <div className="h-2 bg-black rounded-full animate-progress" />
-          </div>
-          <style>{`
-            @keyframes progress {
-              0%   { width: 0%; margin-left: 0%; }
-              50%  { width: 70%; margin-left: 15%; }
-              100% { width: 0%; margin-left: 100%; }
-            }
-            .animate-progress {
-              animation: progress 1.8s ease-in-out infinite;
-            }
-          `}</style>
-        </div>
-      )}
-
-      {/* ── Section 4: Sent Confirmation ────────────────────────────────── */}
-      {step === 'sent' && (
-        <div className="text-center py-12">
-          <div className="text-5xl mb-4">✅</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Campaign sent successfully!</h2>
-          <p className="text-gray-500 text-sm mb-8">
-            Dispatched to {campaignData?.segmentCount} customers
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              to={`/analytics/${campaignData?.campaignId}`}
-              className="inline-block rounded-lg bg-black px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
-            >
-              View Analytics →
-            </Link>
-            <Link
-              to="/"
-              className="inline-block rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              ← Back to Dashboard
-            </Link>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
