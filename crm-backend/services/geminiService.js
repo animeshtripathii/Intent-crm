@@ -5,16 +5,25 @@ dotenv.config();
 
 // rotates across multiple keys so we don't blow the free tier quota
 const getKeys = () => {
+  // comma-separated list takes priority
   if (process.env.GEMINI_API_KEYS) {
     return process.env.GEMINI_API_KEYS.split(',').map(k => k.trim()).filter(Boolean);
   }
-  if (process.env.GEMINI_API_KEY) {
-    return [process.env.GEMINI_API_KEY.trim()];
-  }
+  // numbered keys fallback
+  const numbered = [
+    process.env.GEMINI_API_KEY_1,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4,
+  ].filter(Boolean);
+  if (numbered.length > 0) return numbered;
+  // single key last resort
+  if (process.env.GEMINI_API_KEY) return [process.env.GEMINI_API_KEY.trim()];
   return [];
 };
 
 const keys = getKeys();
+console.log(`Loaded ${keys.length} Gemini API key(s)`);
 let currentKeyIndex = 0;
 
 const getClient = () => {
@@ -71,10 +80,10 @@ export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
     const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}${retryNote}`;
 
     const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: prompt,
     }));
-    
+
     const text = response.text;
     console.log(`RAW GEMINI (attempt ${attempt}):`, text);
 
@@ -114,7 +123,7 @@ Return ONLY the message text, nothing else.`;
 
   try {
     const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.0-flash',
       contents: prompt,
     }));
     return response.text.trim();
@@ -131,12 +140,12 @@ export const generateInsight = async (stats, campaignName) => {
   const userPrompt = `Campaign: ${campaignName}. Sent: ${stats.sent}. Delivered: ${stats.delivered}. Opened: ${stats.opened}. Clicked: ${stats.clicked}. Failed: ${stats.failed}.`;
 
   try {
-    const insightKey = process.env.GEMINI_INSIGHT_KEY;
-    const insightClient = new GoogleGenAI({ apiKey: insightKey });
-    const response = await insightClient.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `${systemPrompt}\n\n${userPrompt}`,
-    });
+    const response = await withKeyRotation(client =>
+      client.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: `${systemPrompt}\n\n${userPrompt}`,
+      })
+    );
     return response.text.trim();
   } catch (err) {
     console.error('generateInsight error:', err.message);
