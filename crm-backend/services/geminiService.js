@@ -71,7 +71,7 @@ export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
     const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}${retryNote}`;
 
     const response = await withKeyRotation(client => client.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
     }));
     
