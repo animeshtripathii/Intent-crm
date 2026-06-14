@@ -25,20 +25,35 @@ export const extractJSON = (rawText) => {
 // ── Parse Natural Language Intent → Filter Object ────────────────────────
 const SYSTEM_PROMPT_PARSE = `You are a CRM data assistant. Convert natural language marketing goals into a JSON filter object. The customer collection has these fields: totalSpend (number, INR), totalOrders (number), lastOrderDate (ISO date string), city (string), tags (array of strings: vip, lapsed, new, repeat). Return ONLY valid JSON with no explanation. Supported filter keys: minSpend, maxSpend, minOrders, maxOrders, daysSinceLastOrder, city, tags, minOrderAmount.`;
 
-export const parseIntent = async (naturalLanguageIntent) => {
+export const parseIntent = async (naturalLanguageIntent, attempt = 1) => {
   try {
-    const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}`;
+    const retryNote = attempt > 1
+      ? '\n\nIMPORTANT: Your previous response could not be parsed as JSON. Return STRICTLY valid JSON only. No markdown. No explanation. Just the JSON object.'
+      : '';
+
+    const prompt = `${SYSTEM_PROMPT_PARSE}\n\nUser intent: ${naturalLanguageIntent}${retryNote}`;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
     const text = response.text;
-    console.log('RAW GEMINI:', text);
+    console.log(`RAW GEMINI (attempt ${attempt}):`, text);
+
     const parsed = extractJSON(text);
     console.log('PARSED FILTERS:', parsed);
     return parsed;
+
   } catch (err) {
-    console.error('parseIntent error:', err.message);
+    console.error(`parseIntent attempt ${attempt} failed:`, err.message);
+
+    if (attempt < 2) {
+      console.log('Retrying parseIntent with stricter prompt...');
+      return parseIntent(naturalLanguageIntent, attempt + 1);
+    }
+
+    // Both attempts failed — return empty filters with warning
+    console.error('parseIntent failed after 2 attempts — returning empty filters');
     return {};
   }
 };

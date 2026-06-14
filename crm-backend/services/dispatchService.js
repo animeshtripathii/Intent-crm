@@ -44,7 +44,10 @@ export const dispatchCampaign = async (customers, campaign) => {
         try {
           await fetch(`${channelServiceUrl}/simulate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.CHANNEL_SERVICE_SECRET,
+            },
             body: JSON.stringify({
               communicationId: comm._id.toString(),
               recipientPhone: customer.phone,

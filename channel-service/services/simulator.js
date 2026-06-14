@@ -10,7 +10,10 @@ async function callbackToCRM(url, communicationId, status, attempt = 1) {
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.CHANNEL_SERVICE_SECRET,
+      },
       body: JSON.stringify({ communicationId, status, timestamp: new Date() }),
     });
 

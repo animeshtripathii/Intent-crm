@@ -184,11 +184,11 @@ Open **http://localhost:3000**
 
 This system is designed for a demo with 300 customers. Production considerations I would address at scale:
 
-- **Message dispatch:** Replace batched `Promise.all` with BullMQ + Redis queue for reliable at-scale job processing
+- **Message dispatch:** Replace batched `Promise.all` with a proper job queue for reliable at-scale processing. For self-hosted infrastructure: BullMQ + Redis with N worker processes pulling jobs independently — one worker crash doesn't kill the campaign. For managed cloud infrastructure: Amazon SQS (AWS) or Google Cloud Pub/Sub (GCP) as the queue backend, with Cloud Run or Lambda workers consuming jobs. Each worker handles a batch of 1000 customers. Partial batch failures are retried automatically by the queue — dead-letter queue catches permanently failed jobs for manual review.
 - **Gemini calls:** Batch similar customers, generate template variations rather than one call per customer
-- **Callback ingestion:** Add idempotency keys to `/api/receipt` to handle duplicate callbacks from the channel service
 - **Live feed:** Replace 3s polling with WebSocket or Server-Sent Events
 - **Database:** Add compound indexes on `(campaignId + status)` in communications collection for faster analytics queries
+- **Callback ingestion at scale:** At 1M customers × 4 callbacks = 4M POST requests hitting `/api/receipt`. A single Express server collapses under this load. Fix: put callbacks into Amazon SQS or Kafka first, drain with bulk MongoDB writes. Idempotency keys (already implemented) prevent double-counting from duplicate callbacks.
 
 ---
 

@@ -5,6 +5,13 @@ const router = Router();
 
 // POST /simulate — accept a message for simulated delivery
 router.post('/', (req, res) => {
+  // Auth check — shared secret
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey !== process.env.CHANNEL_SERVICE_SECRET) {
+    console.warn('Unauthorized request to /simulate');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   const { communicationId, recipientPhone, message, channel, crmReceiptUrl } = req.body;
 
   // Validate all required fields
