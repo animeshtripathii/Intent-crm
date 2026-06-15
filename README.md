@@ -108,24 +108,7 @@ Hardcoded session — implementing full auth would cost a full day for zero addi
 
 ---
 
-## Interview Notes — Defending Key Decisions
 
-**Batched dispatch — why 10 concurrent:**
-Constraint: free-tier Render has limited memory per instance.
-10 concurrent HTTP calls = low memory footprint + no timeout risk.
-Time complexity: O(n/10) batches × O(1) per batch = O(n) total.
-Space: O(10) open connections at any time.
-At scale: replace with BullMQ workers — same O(n) complexity but distributed across N machines.
-
-**Polling — why 3 seconds:**
-Constraint: this is a campaign tool, not a chat app. 
-3s latency on status updates is acceptable.
-Cost: 1 GET request per 3s per open analytics tab.
-At scale: SSE pushes only on state change — 0 requests when nothing is happening.
-
-**Callback loop — ordering guarantee:**
-The channel service fires callbacks sequentially per communication (delivered → opened → read → clicked). The CRM receipt endpoint checks statusHistory before writing — out-of-order callbacks are safely ignored via the idempotency check.
-At scale: add a sequence number to each callback and reject lower sequence numbers than the last recorded one.
 
 ---
 
