@@ -3,7 +3,6 @@
 
 A chat-first campaign agent where marketers describe their goal in plain English — Gemini AI segments the audience, drafts personalized messages, and dispatches the campaign. No form-filling. No SQL. Just intent.
 
-**Live Demo:** [your-vercel-url]  
 **GitHub:** https://github.com/animeshtripathii/Intent-crm  
 **Video Walkthrough:** [your-video-url]
 
@@ -255,7 +254,3 @@ PORT=5001
 ```env
 VITE_API_URL=https://xeno-crm-backend.onrender.com
 ```
-
----
-
-> **Note:** Replace all placeholder URLs with actual deployed URLs once Render and Vercel deployment is complete.
